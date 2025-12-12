@@ -31,6 +31,12 @@ jobs:
           X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
         run: node index.js
 
+      - name: Ensure index file exists
+        run: |
+          if [ ! -f current_index.json ]; then
+            echo "0" > current_index.json
+          fi
+
       - name: Save index
         run: |
           git config --local user.email "bot@github.com"
