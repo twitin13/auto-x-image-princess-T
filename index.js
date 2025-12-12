@@ -62,9 +62,6 @@ async function postTweet() {
     const mediaId = await rwClient.v1.uploadMedia(imgToPost);
 
     const tweet = `
-Posting otomatis gambar ke-${idx + 1} ✨
-
-👑 Bot by Princess
     `.trim();
 
     await rwClient.v2.tweet({
@@ -81,3 +78,4 @@ Posting otomatis gambar ke-${idx + 1} ✨
 }
 
 postTweet();
+
