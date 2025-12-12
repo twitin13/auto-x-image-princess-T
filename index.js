@@ -1,8 +1,7 @@
-import fs from "fs-extra";
-import path from "path";
 import { TwitterApi } from "twitter-api-v2";
+import fs from "fs";
+import path from "path";
 
-// Gunakan ENV X_API_KEY bukan TWITTER_API_KEY
 const client = new TwitterApi({
   appKey: process.env.X_API_KEY,
   appSecret: process.env.X_API_SECRET,
@@ -12,53 +11,73 @@ const client = new TwitterApi({
 
 const rwClient = client.readWrite;
 
-async function main() {
-  const imgFolder = "./images";
-  const indexFile = "./current_index.json";
+const IMAGES_FOLDER = "./images";
+const STATE_FILE = "./last_index.json";
 
-  // baca daftar gambar
-  const images = fs
-    .readdirSync(imgFolder)
-    .filter(f => /\.(jpg|jpeg|png)$/i.test(f))
-    .sort(); // biar urut
-
-  if (images.length === 0) {
-    console.log("Tidak ada foto dalam folder images.");
-    return;
+// --- Load index terakhir ---
+function loadLastIndex() {
+  if (!fs.existsSync(STATE_FILE)) return 0;
+  try {
+    return JSON.parse(fs.readFileSync(STATE_FILE, "utf8")).lastIndex || 0;
+  } catch {
+    return 0;
   }
-
-  // baca index sekarang
-  let idx = 0;
-  if (fs.existsSync(indexFile)) {
-    idx = JSON.parse(fs.readFileSync(indexFile, "utf8")).index || 0;
-  }
-
-  // ambil gambar
-  const imageName = images[idx];
-  const filePath = path.join(imgFolder, imageName);
-
-  console.log(`📸 Posting gambar ke-${idx + 1}: ${imageName}`);
-
-  // upload media
-  const mediaId = await rwClient.v1.uploadMedia(filePath);
-
-  // tweet
-  await rwClient.v2.tweet({
-    text: "✨", // edit caption di sini
-    media: { media_ids: [mediaId] },
-  });
-
-  console.log("✔ Tweet terkirim:", imageName);
-
-  // next index
-  let nextIdx = idx + 1;
-  if (nextIdx >= images.length) {
-    nextIdx = 0; // kembali ke awal
-  }
-
-  // simpan index
-  fs.writeFileSync(indexFile, JSON.stringify({ index: nextIdx }, null, 2));
-  console.log(`➡ Next tweet index: ${nextIdx + 1}`);
 }
 
-main();
+// --- Simpan index ---
+function saveLastIndex(idx) {
+  fs.writeFileSync(STATE_FILE, JSON.stringify({ lastIndex: idx }));
+}
+
+// --- Ambil gambar & urutkan berdasarkan angka ---
+function getImageList() {
+  const files = fs.readdirSync(IMAGES_FOLDER)
+    .filter(f => /\.(jpg|jpeg|png|gif)$/i.test(f))
+    .sort((a, b) => {
+      // ambil angka dari nama file
+      const numA = parseInt(a.match(/\d+/)?.[0] || 0);
+      const numB = parseInt(b.match(/\d+/)?.[0] || 0);
+      return numA - numB;
+    })
+    .map(f => path.join(IMAGES_FOLDER, f));
+    
+  return files;
+}
+
+// --- Kirim Tweet ---
+async function postTweet() {
+  try {
+    const images = getImageList();
+    if (images.length === 0) {
+      console.log("⚠ Tidak ada gambar di folder /images");
+      return;
+    }
+
+    let idx = loadLastIndex();
+    if (idx >= images.length) idx = 0;
+
+    const imgToPost = images[idx];
+    console.log("➡ Posting:", imgToPost);
+
+    const mediaId = await rwClient.v1.uploadMedia(imgToPost);
+
+    const tweet = `
+Posting otomatis gambar ke-${idx + 1} ✨
+
+👑 Bot by Princess
+    `.trim();
+
+    await rwClient.v2.tweet({
+      text: tweet,
+      media: { media_ids: [mediaId] }
+    });
+
+    console.log("✅ Tweet terkirim:", new Date().toLocaleString());
+    saveLastIndex(idx + 1);
+
+  } catch (err) {
+    console.error("❌ Error:", err);
+  }
+}
+
+postTweet();
