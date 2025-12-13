@@ -1,4 +1,4 @@
-name: Auto Tweet Images
+name: Auto Tweet Image
 
 on:
   schedule:
@@ -8,39 +8,18 @@ on:
 jobs:
   tweet:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 1
+      - uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/setup-node@v3
         with:
           node-version: "18"
 
-      - name: Install dependencies
-        run: npm install
+      - run: npm install
 
-      - name: Run bot
+      - run: node index.js
         env:
           X_API_KEY: ${{ secrets.X_API_KEY }}
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
-        run: node index.js
-
-      - name: Ensure index file exists
-        run: |
-          if [ ! -f current_index.json ]; then
-            echo "0" > current_index.json
-          fi
-
-      - name: Save index
-        run: |
-          git config --local user.email "bot@github.com"
-          git config --local user.name "GitHub Bot"
-          git add current_index.json
-          git commit -m "update index" || echo "no changes"
-          git push || echo "no push"
