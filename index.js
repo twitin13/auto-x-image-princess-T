@@ -33,7 +33,7 @@ console.log("Upload:", imagePath);
 const mediaId = await rwClient.v1.uploadMedia(imagePath);
 
 await rwClient.v2.tweet({
-  text: `Auto post #${imageNumber} 🌸`,
+  text: `,
   media: { media_ids: [mediaId] },
 });
 
@@ -41,3 +41,4 @@ console.log("✅ Tweet terkirim");
 
 // === SIMPAN INDEX BARU ===
 fs.writeFileSync(INDEX_FILE, String(index + 1));
+
