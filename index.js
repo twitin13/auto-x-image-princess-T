@@ -1,7 +1,8 @@
-import { TwitterApi } from "twitter-api-v2";
 import fs from "fs";
 import path from "path";
+import { TwitterApi } from "twitter-api-v2";
 
+// === CLIENT X ===
 const client = new TwitterApi({
   appKey: process.env.X_API_KEY,
   appSecret: process.env.X_API_SECRET,
@@ -11,71 +12,32 @@ const client = new TwitterApi({
 
 const rwClient = client.readWrite;
 
-const IMAGES_FOLDER = "./images";
-const STATE_FILE = "./last_index.json";
+// === CONFIG ===
+const IMAGE_FOLDER = "./images";
+const TOTAL_IMAGES = 140;
+const INDEX_FILE = "./current_index.json";
 
-// --- Load index terakhir ---
-function loadLastIndex() {
-  if (!fs.existsSync(STATE_FILE)) return 0;
-  try {
-    return JSON.parse(fs.readFileSync(STATE_FILE, "utf8")).lastIndex || 0;
-  } catch {
-    return 0;
-  }
+// === LOAD INDEX ===
+let index = 0;
+if (fs.existsSync(INDEX_FILE)) {
+  index = Number(fs.readFileSync(INDEX_FILE, "utf8"));
 }
 
-// --- Simpan index ---
-function saveLastIndex(idx) {
-  fs.writeFileSync(STATE_FILE, JSON.stringify({ lastIndex: idx }));
-}
+// === PILIH GAMBAR ===
+const imageNumber = (index % TOTAL_IMAGES) + 1;
+const imagePath = path.join(IMAGE_FOLDER, `img${imageNumber}.jpg`);
 
-// --- Ambil gambar & urutkan berdasarkan angka ---
-function getImageList() {
-  const files = fs.readdirSync(IMAGES_FOLDER)
-    .filter(f => /\.(jpg|jpeg|png|gif)$/i.test(f))
-    .sort((a, b) => {
-      // ambil angka dari nama file
-      const numA = parseInt(a.match(/\d+/)?.[0] || 0);
-      const numB = parseInt(b.match(/\d+/)?.[0] || 0);
-      return numA - numB;
-    })
-    .map(f => path.join(IMAGES_FOLDER, f));
-    
-  return files;
-}
+console.log("Upload:", imagePath);
 
-// --- Kirim Tweet ---
-async function postTweet() {
-  try {
-    const images = getImageList();
-    if (images.length === 0) {
-      console.log("⚠ Tidak ada gambar di folder /images");
-      return;
-    }
+// === UPLOAD & TWEET ===
+const mediaId = await rwClient.v1.uploadMedia(imagePath);
 
-    let idx = loadLastIndex();
-    if (idx >= images.length) idx = 0;
+await rwClient.v2.tweet({
+  text: `Auto post #${imageNumber} 🌸`,
+  media: { media_ids: [mediaId] },
+});
 
-    const imgToPost = images[idx];
-    console.log("➡ Posting:", imgToPost);
+console.log("✅ Tweet terkirim");
 
-    const mediaId = await rwClient.v1.uploadMedia(imgToPost);
-
-    const tweet = `
-    `.trim();
-
-    await rwClient.v2.tweet({
-      text: tweet,
-      media: { media_ids: [mediaId] }
-    });
-
-    console.log("✅ Tweet terkirim:", new Date().toLocaleString());
-    saveLastIndex(idx + 1);
-
-  } catch (err) {
-    console.error("❌ Error:", err);
-  }
-}
-
-postTweet();
-
+// === SIMPAN INDEX BARU ===
+fs.writeFileSync(INDEX_FILE, String(index + 1));
